@@ -1,0 +1,169 @@
+<style>
+        #chart_2,
+        #chart_3 {
+            width: 100%;
+            height: 400px;
+            
+        }
+
+        .loading-message {
+            display: none;
+            text-align: center;
+            font-style: italic;
+        }
+    </style>
+
+<input type="date" id="start_date">
+    <input type="time" id="start_time">
+    <input type="date" id="end_date">
+    <input type="time" id="end_time">
+    <div id="chart_2"></div>
+    <div id="chart_3"></div>
+    <div id="loading_message_chart_2" class="loading-message">Cargando...</div>
+    <div id="loading_message_chart_3" class="loading-message">Cargando...</div>
+
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript">
+        var options = {
+            title: 'Entradas y salidas por hora del día',
+            hAxis: {
+                title: 'Hora',
+                format: 'HH:mm',
+            },
+            vAxis: {
+                title: '',
+                gridlines: { color: 'grey' },
+                viewWindow: { min: 0 }
+            }
+        };
+
+        // Load the Visualization API and the corechart package.
+        google.charts.load('current', { 'packages': ['corechart'] });
+        google.charts.setOnLoadCallback(drawChart);
+
+        $(function () {
+			//console.log($("#start_date").val());
+            // Listener para cuando cambia la fecha en los inputs de tipo date y time
+            $("#start_date, #start_time, #end_date, #end_time").on("change", function () {
+                var startDate = $("#start_date").val();
+                var startTime = $("#start_time").val();
+                var endDate = $("#end_date").val();
+                var endTime = $("#end_time").val();
+                drawChart(startDate, startTime, endDate, endTime);
+            });
+
+            // Obtener la fecha y hora actual
+            var currentDate = new Date();
+            var formattedDate = currentDate.toISOString().split('T')[0]; // Formato yyyy-mm-dd
+            var formattedTime = ("0" + currentDate.getHours()).slice(-2) + ":" + ("0" + currentDate.getMinutes()).slice(-2); // Formato HH:mm
+            $("#start_date, #end_date").val(formattedDate); // Establecer la fecha actual como valor por defecto
+            $("#start_time, #end_time").val(formattedTime); // Establecer la hora actual como valor por defecto
+        });
+
+        function drawChart(startDate, startTime, endDate, endTime) {
+            showLoadingMessage('chart_2');
+            showLoadingMessage('chart_3');
+            loadChart2(startDate, startTime, endDate, endTime);
+            loadChart3(startDate, startTime, endDate, endTime);
+        }
+
+        function loadChart2(startDate, startTime, endDate, endTime) {
+            showLoadingMessage('chart_2');
+            var fromHour = startDate + " " + startTime;
+            var toHour = endDate + " " + endTime;
+            var jsonData = $.ajax({
+                url: "/day_json?from_hour=" + fromHour + "&to_hour=" + toHour,
+                cache: false,
+                dataType: "json",
+                async: true, // Cambiado a true para que se ejecute de forma asincrónica
+                beforeSend: function () {
+                    showLoadingMessage('chart_2');
+                },
+                complete: function () {
+                    hideLoadingMessage('chart_2');
+                },
+                success: function (jsonData) {
+                    var data = new google.visualization.DataTable(jsonData);
+                    var chart = new google.visualization.LineChart(document.getElementById('chart_2'));
+                    var groupedData = groupDataByHour(data);
+                    options.title = 'Entradas y salidas por hora del periodo'; // No incluir la fecha en el título
+                    chart.draw(groupedData, options);
+                },
+                error: function () {
+                    console.error("Error al cargar los datos para el gráfico 2");
+                    hideLoadingMessage('chart_2');
+                }
+            });
+        }
+
+        function loadChart3(startDate, startTime, endDate, endTime) {
+            showLoadingMessage('chart_3');
+            var fromHour = startDate + " " + startTime;
+            var toHour = endDate + " " + endTime;
+            var jsonData = $.ajax({
+                url: "/day_json?from_hour=" + fromHour + "&to_hour=" + toHour + "&type=2",
+                cache: false,
+                dataType: "json",
+                async: true, // Cambiado a true para que se ejecute de forma asincrónica
+                beforeSend: function () {
+                    showLoadingMessage('chart_3');
+                },
+                complete: function () {
+                    hideLoadingMessage('chart_3');
+                },
+                success: function (jsonData) {
+                    var data = new google.visualization.DataTable(jsonData);
+                    var chart = new google.visualization.LineChart(document.getElementById('chart_3'));
+                    options.title = 'Ocupación del periodo'; // No incluir la fecha en el título
+                    chart.draw(data, options);
+                },
+                error: function () {
+                    console.error("Error al cargar los datos para el gráfico 3");
+                    hideLoadingMessage('chart_3');
+                }
+            });
+        }
+
+        function groupDataByHour(data) {
+            var groupedData = {};
+            for (var i = 0; i < data.getNumberOfRows(); i++) {
+                var hour = data.getValue(i, 0).getHours(); // Obtener la hora directamente
+                var entries = parseFloat(data.getValue(i, 1)); // Convertir a número decimal
+                var exits = parseFloat(data.getValue(i, 2)); // Convertir a número decimal
+
+                // Si no existe la hora en el grupo, inicializa un nuevo grupo
+                if (!groupedData[hour]) {
+                    groupedData[hour] = { entries: 0, exits: 0 };
+                }
+
+                // Sumar las entradas y salidas al grupo correspondiente
+                groupedData[hour].entries += entries;
+                groupedData[hour].exits += exits;
+            }
+
+            // Convertir los datos agrupados en un formato compatible con Google Charts
+            var resultData = new google.visualization.DataTable();
+            resultData.addColumn('timeofday', 'Hora');
+            resultData.addColumn('number', 'Entradas');
+            resultData.addColumn('number', 'Salidas');
+
+            // Ordenar las horas para asegurar la secuencia correcta
+            var sortedHours = Object.keys(groupedData).map(Number).sort((a, b) => a - b);
+
+            // Agregar filas al DataTable con las horas ordenadas y sus respectivas entradas y salidas
+            sortedHours.forEach(hour => {
+                resultData.addRow([[hour, 0, 0], groupedData[hour].entries, groupedData[hour].exits]);
+            });
+
+            return resultData;
+        }
+
+        function showLoadingMessage(chartId) {
+            $("#loading_message_" + chartId).show();
+        }
+
+        function hideLoadingMessage(chartId) {
+            $("#loading_message_" + chartId).hide();
+        }
+    </script>

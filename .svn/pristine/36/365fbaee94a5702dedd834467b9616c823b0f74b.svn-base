@@ -1,0 +1,22 @@
+<?php
+setlocale(LC_ALL, "es_ES.UTF-8", "es_ES@euro", "es_ES", "esp");
+date_default_timezone_set('Europe/Madrid'); 
+
+
+if ( !defined('ABSPATH') )
+	define('ABSPATH', dirname(__FILE__) . '/');
+
+if ( !defined('ABSPATH_COMMON') )
+	define('ABSPATH_COMMON', str_replace('gw.oklocated.es', 'ws.oklocated.es', ABSPATH));
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'j474f323_oklocated_gw');
+define('DB_USER', 'okadmin');
+define('DB_PASSWORD', 'loK66@7889ate');
+
+define('TABLE_STATUS', 'status');
+
+define('MAC_SEL', 'mac_sel');
+
+require_once(ABSPATH.'settings.php');
+?>

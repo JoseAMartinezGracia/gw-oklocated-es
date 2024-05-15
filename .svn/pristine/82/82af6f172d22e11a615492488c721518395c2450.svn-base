@@ -1,0 +1,72 @@
+<?php
+class msr01bModel
+{		
+	static public function get_items($where = null)
+	{						
+		// Lista de entradas
+		
+		$sqlArray = array();
+        $paramArray = array();		
+		
+		// Añadimos mac guardad en la sesión (temporal, se mejorará)
+		$sqlArray[] = "mac=?";
+		$paramArray[] = getSession()->get(MAC_SEL);
+		
+		
+		
+		foreach($where as $key=>$value){			
+			if($value != null){
+				$sqlArray[] = $key."?";
+				$paramArray[] = $value;				
+			}else
+				$sqlArray[] = $key;
+		}									
+		
+		$sql = 'SELECT id, mac, timestamp_device, UNIX_TIMESTAMP(timestamp_device) as unix_timestamp, serial, entries, exits FROM '.TABLE_STATUS. 
+									(count($sqlArray)>0 ? ' WHERE '.join(' AND ', $sqlArray) : '').' 
+									ORDER BY timestamp_device ASC';
+
+
+		//echo $sql;
+		
+		$items = getDatabase()->all($sql, $paramArray);
+		
+		return $items;		
+	}
+	
+	
+	
+	static public function delete_items($where)
+	{		
+		$sql = array();
+        $paramArray = array();
+		
+		
+		foreach($where as $params){
+			$sql[] = $params[1];
+			if($params[0] != null)
+				$paramArray[":".$params[0]] = $params[2];
+		}	
+			
+		$items = getDatabase()->execute('DELETE FROM '.TABLE_STATUS.' WHERE '.join(' AND ', $sql), $paramArray);
+		//return $items;
+		
+	}
+	
+	
+	static public function get_macs()
+	{						
+		// Lista de macs en la BD
+		
+		$sql = "SELECT distinct(mac) mac FROM ".TABLE_STATUS." WHERE type='Minew MSR01-B' ORDER BY mac asc";
+		
+		$items = getDatabase()->all($sql, array());
+		
+		return $items;		
+	}
+	
+	
+	
+	
+}
+?>

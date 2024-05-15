@@ -1,0 +1,6 @@
+
+<h6>Selecciona MAC del dispositivo:</h6>
+<?php foreach($macs as $mac): ?>
+  <p><a href="/mac_sel?id=<?php echo $mac["id"] ?>&mac=<?php echo $mac["mac"] ?>" title="Seleccionar mac"><?php echo $mac["mac"] ?></a></p>  
+<?php endforeach; ?>
+ 

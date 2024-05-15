@@ -1,0 +1,247 @@
+<?php
+class JsonController
+{
+	static public function hour()
+	{			
+		include_once ABSPATH.'model/msr01b.php';
+		
+		$type = $_GET['type'] ?? 1;		
+		
+		if(isset($_GET['from'])){
+			$from = date('Y-m-d H:i:s', strtotime($_GET['from']));
+			$to = date('Y-m-d H:i:s', strtotime($_GET['from']) + 3600);
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<' => $to));
+		}else{
+			$from = date('Y-m-d H:i:s', time());
+			$items = msr01bModel::get_items(array('timestamp_device>=DATE_SUB(NOW(), INTERVAL 1 HOUR)' => null, 'timestamp_device<=NOW()' => null));
+		}
+		//$from = date('Y-m-d H:i:s', time()-3600);
+		
+		
+		
+		// fake
+		//$from = date('Y-m-d H:i:s', strtotime("2024-03-29 18:15:00"));
+		//$to = date('Y-m-d H:i:s', strtotime("2024-03-29 19:16:00"));
+		
+		// fake
+		
+
+		//¿Sobra?
+		$entradas = 0;
+		$salidas = 0;
+		$ocupacion = 0;
+		foreach($items as $key=>$item){
+			$entradas += $item['entries'];			
+			$salidas += $item['exits'];
+			$ocupacion = $ocupacion + $item['entries'] - $item['exits'];
+			$items[$key]['ocupacion'] = $ocupacion;
+		}
+		
+		$json = array();
+		
+		if($type == 1){
+			$json['cols'][] = array('label' => 'Fecha y hora', 'type' => 'datetime');
+			$json['cols'][] = array('label' => 'Entradas', 'type' => 'number');
+			$json['cols'][] = array('label' => 'Salidas', 'type' => 'number');
+			
+			if(count($items) > 0){
+				foreach($items as $item){
+					$json['rows'][]['c'] = [['v' => 'Date('.date("Y", $item['unix_timestamp']).','.(date("n", $item['unix_timestamp'])-1).','.date("j", $item['unix_timestamp']).','.date("G", $item['unix_timestamp']).','.(int)date("i", $item['unix_timestamp']).','.(int)date("s", $item['unix_timestamp']).')'],
+											['v' => $item['entries']],
+											['v' => $item['exits']]];			
+				}
+			}else{
+				$json['rows'][]['c'] = [['v' => 'Date('.date("Y", strtotime($from)).','.(date("n", strtotime($from))-1).','.date("j", strtotime($from)).','.date("G", strtotime($from)).','.(int)date("i", strtotime($from)).','.(int)date("s", strtotime($from)).')'],
+											['v' => 0],
+											['v' => 0]];				
+			}
+		}else if($type == 2){
+			$json['cols'][] = array('label' => 'Fecha y hora', 'type' => 'datetime');
+			$json['cols'][] = array('label' => 'Ocupación', 'type' => 'number');
+			
+			if(count($items) > 0){
+				foreach($items as $item){
+					$json['rows'][]['c'] = [['v' => 'Date('.date("Y", $item['unix_timestamp']).','.(date("n", $item['unix_timestamp'])-1).','.date("j", $item['unix_timestamp']).','.date("G", $item['unix_timestamp']).','.(int)date("i", $item['unix_timestamp']).','.(int)date("s", $item['unix_timestamp']).')'],
+											['v' => $item['ocupacion']]];
+				}
+			}else{
+				$json['rows'][]['c'] = [['v' => 'Date('.date("Y", strtotime($from)).','.(date("n", strtotime($from))-1).','.date("j", strtotime($from)).','.date("G", strtotime($from)).','.(int)date("i", strtotime($from)).','.(int)date("s", strtotime($from)).')'],
+											['v' => 0]];
+			}
+		}
+		
+		echo json_encode($json);
+	
+	}
+	
+	
+	static public function day()
+	{			
+		include_once ABSPATH.'model/msr01b.php';
+		
+		$type = $_GET['type'] ?? 1;
+		
+		if(isset($_GET['day'])){ //url.php?day=2024-03-15
+			// formato YYYY-mm-dd
+			$from = $_GET['day']." 00:00:00";
+			$to = $_GET['day']." 23:59:59";
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=' => $to));
+		}elseif(isset($_GET['from_hour']) AND isset($_GET['to_hour'])){ //url.php?from=2024-03-15 19:00:00&to=2024-03-17 20:00:00
+			$from = $_GET['from_hour'];
+			$to = $_GET['to_hour'];
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=' => $to));
+		}elseif(isset($_GET['from']) AND isset($_GET['to'])){ //url.php?from=2024-03-15&to=2024-03-17
+			$from = $_GET['from']." 00:00:00";
+			$to = $_GET['to']." 23:59:59";
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=' => $to));
+		}else{
+			$from = date('Y-m-d')." 00:00:00";			
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=NOW()' => null));						
+		}
+		
+		
+		$minutes = array();
+		
+		$entradas = 0;
+		$salidas = 0;
+		$ocupacion = 0;
+		
+		foreach($items as $key=>$item){
+			$minute = date('Y-m-d H:i', $item['unix_timestamp']);
+			if(!isset($minutes[$minute])){
+				$minutes[$minute]['entries'] = 0;
+				$minutes[$minute]['exits'] = 0;
+			}
+			$minutes[$minute]['entries'] += $item['entries'];
+			$minutes[$minute]['exits'] += $item['exits'];
+			$minutes[$minute]['unix_timestamp'] = $item['unix_timestamp'];
+			
+			$entradas += $item['entries'];			
+			$salidas += $item['exits'];
+			$ocupacion = $ocupacion + $item['entries'] - $item['exits'];
+			$minutes[$minute]['ocupacion'] = $ocupacion;
+		}
+				
+		$json = array();
+		
+		if($type == 1){
+			$json['cols'][] = array('label' => 'Fecha y hora', 'type' => 'datetime');
+			$json['cols'][] = array('label' => 'Entradas', 'type' => 'number');
+			$json['cols'][] = array('label' => 'Salidas', 'type' => 'number');
+			
+			
+			if(count($items) > 0){
+				foreach($minutes as $minute){
+					$json['rows'][]['c'] = [['v' => 'Date('.date("Y", $minute['unix_timestamp']).','.(date("n", $minute['unix_timestamp'])-1).','.date("j", $minute['unix_timestamp']).','.date("G", $minute['unix_timestamp']).','.(int)date("i", $minute['unix_timestamp']).')'],
+											['v' => $minute['entries']],
+											['v' => $minute['exits']]];			
+				}
+			}else{
+				$json['rows'][]['c'] = [['v' => 'Date('.date("Y", strtotime($from)).','.(date("n", strtotime($from))-1).','.date("j", strtotime($from)).','.date("G", strtotime($from)).','.(int)date("i", strtotime($from)).')'],
+											['v' => 0],
+											['v' => 0]];						
+			}
+		}else if($type == 2){
+			$json['cols'][] = array('label' => 'Fecha y hora', 'type' => 'datetime');
+			$json['cols'][] = array('label' => 'Ocupación', 'type' => 'number');
+			
+			if(count($items) > 0){
+				foreach($minutes as $minute){
+					$json['rows'][]['c'] = [['v' => 'Date('.date("Y", $minute['unix_timestamp']).','.(date("n", $minute['unix_timestamp'])-1).','.date("j", $minute['unix_timestamp']).','.date("G", $minute['unix_timestamp']).','.(int)date("i", $minute['unix_timestamp']).')'],
+											['v' => $minute['ocupacion']]];
+				}
+			}else{
+				$json['rows'][]['c'] = [['v' => 'Date('.date("Y", strtotime($from)).','.(date("n", strtotime($from))-1).','.date("j",strtotime($from)).','.date("G", strtotime($from)).','.(int)date("i", strtotime($from)).')'],
+											['v' => 0]];
+			}
+		}else if($type == 3){
+			if(count($items) > 0)
+				$json = end($minutes);
+			else
+				$json['ocupacion'] = 0;
+		}
+		
+		echo json_encode($json);
+	
+	}
+	
+	
+	static public function month()
+	{			
+		include_once ABSPATH.'model/msr01b.php';
+		
+		$type = $_GET['type'] ?? 1;		
+		
+		if(isset($_GET['month']) AND isset($_GET['year'])){			
+			$from = date('Y-m-d H:i:s', strtotime($_GET['year']."-".str_pad($_GET['month'], 2, "0", STR_PAD_LEFT)."-01 00:00:00"));
+			$to = date('Y-m-d H:i:s', strtotime("+1 month ".$from));
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<' => $to));			
+		}elseif(isset($_GET['from']) AND isset($_GET['to'])){
+			// formato YYYY-mm-dd
+			$from = $_GET['from']." 00:00:00";
+			$to = $_GET['to']." 23:59:59";
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=' => $to));
+		}else{		
+			$from = date('Y-m')."-01 00:00:00";
+			$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<=NOW()' => null));
+		
+			// fake
+			//$from = date('Y-m-d H:i:s', strtotime("2024-03-01 00:00:00"));
+			//$to = date('Y-m-d H:i:s', strtotime("2024-04-01 00:00:00"));
+			//$items = msr01bModel::get_items(array('timestamp_device>=' => $from, 'timestamp_device<' => $to));
+			// fake
+		}
+		
+
+		$days = array();
+		
+		$entradas = 0;
+		$salidas = 0;
+		$ocupacion = 0;
+		
+		foreach($items as $key=>$item){
+			$day = date('Y-m-d', $item['unix_timestamp']);
+			if(!isset($days[$day])){
+				$days[$day]['entries'] = 0;
+				$days[$day]['exits'] = 0;
+			}
+			$days[$day]['entries'] += $item['entries'];
+			$days[$day]['exits'] += $item['exits'];
+			$days[$day]['unix_timestamp'] = $item['unix_timestamp'];
+			
+			$entradas += $item['entries'];			
+			$salidas += $item['exits'];
+			$ocupacion = $ocupacion + $item['entries'] - $item['exits'];
+			$days[$day]['ocupacion'] = $ocupacion;
+		}
+				
+		$json = array();
+		
+		if($type == 1){
+			$json['cols'][] = array('label' => 'Fecha', 'type' => 'date');
+			$json['cols'][] = array('label' => 'Entradas', 'type' => 'number');
+			//$json['cols'][] = array('label' => 'Salidas', 'type' => 'number');
+			
+			if(count($days) > 0){
+				foreach($days as $day){
+					$json['rows'][]['c'] = [['v' => 'Date('.date("Y", $day['unix_timestamp']).','.(date("n", $day['unix_timestamp'])-1).','.date("j", $day['unix_timestamp']).')'],
+											['v' => $day['entries']],
+											/*['v' => $day['exits']]*/];			
+				}
+			}else{
+				$json['rows'][]['c'] = [['v' => 'Date('.date("Y", strtotime($from)).','.(date("n", strtotime($from))-1).','.date("j", strtotime($from)).')'],
+											['v' => 0],
+											/*['v' => 0]*/];	
+			}
+		}
+		
+		echo json_encode($json);
+	
+	}
+	
+	
+	
+	
+	
+}
+?>
