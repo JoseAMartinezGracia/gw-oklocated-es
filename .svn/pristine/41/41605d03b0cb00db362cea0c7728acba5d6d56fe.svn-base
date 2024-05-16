@@ -1,17 +1,76 @@
 <style>
-    
+    #chart_2,
+    #chart_3,
+    #chart_4 {
+        width: 100%;
+        height: 100%;
+        display: none;
+        /* Ocultamos inicialmente los gráficos, */
+    }
+
+    .containerDate {
+        text-align: center;
+        margin: 20px 0;
+    }
+
     .dates {
         display: inline-block;
         text-align: center;
         box-sizing: content-box;
         padding: 10px;
+        background-color: #f0f0f0;
         border: 1px solid black;
     }
 
-    
+    .spinner-border {
+        display: none;
+        margin: 20px auto;
+        width: 3rem;
+        height: 3rem;
+        border-width: .3rem;
+    }
+
+    .spinner-border.visible {
+        display: block;
+    }
+
+    #totals_section {
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    #totals_section .row {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    #totals_section .col-md-4 {
+        flex: 1;
+        max-width: 300px;
+        margin-bottom: 20px;
+    }
+
+    #totals_section .card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 20px;
+        background-color: #f9f9f9;
+    }
+
+    #totals_section .card-title {
+        font-size: 1.25rem;
+        margin-bottom: 10px;
+    }
+
+    #totals_section .card-body {
+        font-size: 1rem;
+    }
 </style>
-<div class="text-center">
-    <div class="dates text-center bg-body-tertiary">
+<div class="containerDate">
+    <div class="dates">
         <input type="date" id="start_date" class="start_date">
         <input type="time" id="start_time" class="start_time">
         <input type="date" id="end_date" class="end_date">
@@ -19,10 +78,10 @@
     </div>
 </div>
 
-<div class="container text-center my-4">
+<div id="totals_section" class="container text-center mt-4 mb-4">
     <div class="row">
         <div class="col-md-4 my-1">
-            <div class="card bg-body-tertiary">
+            <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Total de entradas</h5>
                     <h6 id="total_entries" class="card-title"><span></span></h6>
@@ -30,7 +89,7 @@
             </div>
         </div>
         <div class="col-md-4 my-1">
-            <div class="card bg-body-tertiary">
+            <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Total de salidas</h5>
                     <h6 id="total_exits" class="card-title"><span></span></h6>
@@ -38,7 +97,7 @@
             </div>
         </div>
         <div class="col-md-4 my-1">
-            <div class="card bg-body-tertiary">
+            <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Comparativa con el mismo período hace un año:</h5>
                     <h6 id="comparison_last_year" class="card-title"></h6>
@@ -49,32 +108,20 @@
         </div>
     </div>
 </div>
-
-
-
-
-
-<div id="chart_2_spinner" class="text-center">
-  <div class="spinner-border text-primary" role="status">
-	<span class="visually-hidden">Cargando datos...</span>
-  </div>
+<div id="chart_2_spinner" class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Cargando...</span>
 </div>
+<div id="chart_2"></div>
 
- <div class="mb-3" id="chart_2"></div>
-
-<div id="chart_3_spinner" class="text-center">
-  <div class="spinner-border text-primary" role="status">
-	<span class="visually-hidden">Cargando datos...</span>
-  </div>
+<div id="chart_3_spinner" class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Cargando...</span>
 </div>
- <div class="mb-3" id="chart_3"></div>
+<div id="chart_3"></div>
 
-<div id="chart_4_spinner" class="text-center">
-  <div class="spinner-border text-primary" role="status">
-	<span class="visually-hidden">Cargando datos...</span>
-  </div>
+<div id="chart_4_spinner" class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Cargando...</span>
 </div>
- <div class="mb-3" id="chart_4"></div>
+<div id="chart_4"></div>
 
 
 
@@ -100,15 +147,14 @@
         var formattedDate = currentDate.toISOString().split('T')[0];
         var formattedTime = ("0" + currentDate.getHours()).slice(-2) + ":" + ("0" + currentDate.getMinutes()).slice(-2);
 
-		$('#start_date').val(formattedDate);
-        //document.getElementById("start_date").value = formattedDate;
+        document.getElementById("start_date").value = formattedDate;
         document.getElementById("start_time").value = formattedTime;
         document.getElementById("end_date").value = formattedDate;
         document.getElementById("end_time").value = formattedTime;
 
         document.querySelectorAll("#start_date, #start_time, #end_date, #end_time").forEach(function (input) {
             input.addEventListener("change", function () {
-                var startDate = $('#start_date').val();
+                var startDate = document.getElementById("start_date").value;
                 var startTime = document.getElementById("start_time").value;
                 var endDate = document.getElementById("end_date").value;
                 var endTime = document.getElementById("end_time").value;
@@ -132,8 +178,6 @@
     function loadChart2(startDate, startTime, endDate, endTime) {
         var fromHour = startDate + " " + startTime;
         var toHour = endDate + " " + endTime;
-		
-		
         $.ajax({
             url: "/day_json?from_hour=" + fromHour + "&to_hour=" + toHour,
             cache: false,
@@ -316,12 +360,12 @@
     }
 
     function showLoadingMessage(chartId) {
-		$('#chart_' + chartId + '_spinner').removeClass("d-none");
-		$('#chart_' + chartId ).addClass("d-none");
+        document.getElementById("chart_" + chartId + "_spinner").classList.add("visible");
+        document.getElementById("chart_" + chartId).style.display = 'none';
     }
 
     function hideLoadingMessage(chartId) {
-		$("#chart_" + chartId + "_spinner").addClass("d-none");
-		$('#chart_' + chartId).removeClass("d-none");	
+        document.getElementById("chart_" + chartId + "_spinner").classList.remove("visible");
+        document.getElementById("chart_" + chartId).style.display = 'block';
     }
 </script>
